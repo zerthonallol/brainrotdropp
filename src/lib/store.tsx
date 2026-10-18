@@ -8,6 +8,9 @@ import {
 } from "@/data/fixtures"
 import { initTelegram, tg } from "./telegram"
 import { loadPlayer, savePlayer } from "./player.functions"
+import { getSettings } from "./owner.functions"
+import { applyPriceOverrides, initStreamer, useLive } from "./live"
+import { rollMutation, mutatedValue, type MutationId } from "@/data/mutations"
 
 // New players start from zero: no coins, no brainrots.
 export const START_BALANCE = 0
@@ -27,6 +30,17 @@ export interface InvItem {
   brainrotId: string
   obtainedAt: number
   status: "owned" | "withdrawing"
+  mutation?: MutationId
+}
+
+export function itemValue(i: InvItem) {
+  return mutatedValue(BRAINROT_BY_ID[i.brainrotId]?.price ?? 0, i.mutation)
+}
+
+export interface Announcement {
+  id: string
+  text: string
+  by: number | null
 }
 
 export interface TransferRequest {
@@ -51,7 +65,11 @@ interface Store {
   canAfford: (n: number) => boolean
   spend: (n: number) => boolean
   credit: (n: number) => void
-  grant: (d: Drop) => InvItem | null
+  grant: (d: Drop, opts?: { mutate?: boolean }) => InvItem | null
+  tradeItem: (uid: string, brainrotId: string) => void
+  announcement: Announcement | null
+  refreshSettings: () => Promise<void>
+  priceVersion: number
   removeItems: (uids: string[]) => void
   sellItem: (uid: string) => void
   claimCase: (c: CaseDef) => void
@@ -70,6 +88,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [inventory, setInventory] = useState<InvItem[]>([])
   const [requests, setRequests] = useState<TransferRequest[]>([])
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({})
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null)
+  const { priceVersion } = useLive()
+
+  const refreshSettings = useCallback(async () => {
+    try {
+      const s = await getSettings()
+      applyPriceOverrides(s.priceOverrides)
+      setAnnouncement(s.announcement && s.announcementId ? { id: s.announcementId, text: s.announcement, by: s.announcementBy } : null)
+    } catch (e) {
+      console.error("getSettings failed", e)
+    }
+  }, [])
+
+  useEffect(() => {
+    initStreamer()
+    refreshSettings()
+    const t = setInterval(refreshSettings, 30_000)
+    return () => clearInterval(t)
+  }, [refreshSettings])
 
   useEffect(() => {
     // telegram-web-app.js may finish loading after hydration, so retry briefly.
@@ -176,12 +213,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const credit = useCallback((n: number) => setBalance((b) => b + n), [])
 
-  const grant = useCallback((d: Drop) => {
+  const grant = useCallback((d: Drop, opts?: { mutate?: boolean }) => {
     if (d.kind === "coins") {
       setBalance((b) => b + d.amount)
       return null
     }
-    const item: InvItem = { uid: uid(), brainrotId: d.id, obtainedAt: Date.now(), status: "owned" }
+    const mutation = opts?.mutate ? rollMutation() : undefined
+    const item: InvItem = { uid: uid(), brainrotId: d.id, obtainedAt: Date.now(), status: "owned", ...(mutation ? { mutation } : {}) }
     setInventory((inv) => [item, ...inv])
     return item
   }, [])
@@ -193,7 +231,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const sellItem = useCallback(
     (id: string) => {
       const it = inventory.find((i) => i.uid === id && i.status === "owned")
-      if (!it) return
+      if (!it || it.mutation) return
       setInventory((inv) => inv.filter((i) => i.uid !== id))
       setBalance((b) => b + (BRAINROT_BY_ID[it.brainrotId]?.price ?? 0))
     },
@@ -223,7 +261,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const requestWithdraw = useCallback(
     (itemUid: string, robloxNick: string) => {
       const it = inventory.find((i) => i.uid === itemUid && i.status === "owned")
-      if (!it) return
+      if (!it || it.mutation) return
       setInventory((inv) => inv.map((i) => (i.uid === itemUid ? { ...i, status: "withdrawing" } : i)))
       setRequests((r) => [
         { id: uid(), type: "withdraw", brainrotId: it.brainrotId, robloxNick, status: "pending", createdAt: Date.now() },
@@ -232,6 +270,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [inventory],
   )
+
+  const tradeItem = useCallback((itemUid: string, brainrotId: string) => {
+    setInventory((inv) =>
+      inv.map((i) =>
+        i.uid === itemUid && i.mutation && i.status === "owned" && BRAINROT_BY_ID[brainrotId]
+          ? { uid: uid(), brainrotId, obtainedAt: Date.now(), status: "owned" }
+          : i,
+      ),
+    )
+  }, [])
 
   const value = useMemo<Store>(
     () => ({
@@ -253,8 +301,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       caseReadyAt,
       requestDeposit,
       requestWithdraw,
+      tradeItem,
+      announcement,
+      refreshSettings,
+      priceVersion,
     }),
-    [user, inTelegram, balance, inventory, requests, cooldowns, hasTag, spend, credit, grant, removeItems, sellItem, claimCase, caseReadyAt, requestDeposit, requestWithdraw],
+    [tradeItem, announcement, refreshSettings, priceVersion, user, inTelegram, balance, inventory, requests, cooldowns, hasTag, spend, credit, grant, removeItems, sellItem, claimCase, caseReadyAt, requestDeposit, requestWithdraw],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
