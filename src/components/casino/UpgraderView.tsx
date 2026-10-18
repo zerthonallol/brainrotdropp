@@ -23,7 +23,7 @@ export function UpgraderView() {
   const [spinning, setSpinning] = useState(false)
   const [result, setResult] = useState<"win" | "lose" | null>(null)
 
-  const owned = store.inventory.filter((i) => i.status === "owned")
+  const owned = store.inventory.filter((i) => i.status === "owned" && !i.mutation)
   const input = owned.find((i) => i.uid === inputUid)
   const inputBrainrot = input ? BRAINROT_BY_ID[input.brainrotId] : null
   const inputValue = (inputBrainrot?.price ?? 0) + extraCoins

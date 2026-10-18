@@ -7,7 +7,10 @@ import { MINI_APP_LINK } from "@/data/fixtures"
 import { useStore } from "@/lib/store"
 import { haptic, notify, openShare } from "@/lib/telegram"
 import { cn } from "@/lib/utils"
-import { CoinAmount, DropCard, cdnImage, dropLabel, dropValue, Coin, formatCoins } from "./ui"
+import { useLive } from "@/lib/live"
+import { MUTATION_BY_ID, mutatedValue, type MutationId } from "@/data/mutations"
+import { BRAINROT_BY_ID } from "@/data/brainrots"
+import { CoinAmount, BrainrotCard, DropCard, cdnImage, dropLabel, dropValue, Coin, formatCoins } from "./ui"
 
 const STRIP_LEN = 56
 const WIN_INDEX = 48
@@ -125,6 +128,8 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
   const [offset, setOffset] = useState(0)
   const [won, setWon] = useState<Drop | null>(null)
   const [wonUid, setWonUid] = useState<string | null>(null)
+  const [wonMut, setWonMut] = useState<MutationId | undefined>(undefined)
+  const { streamer } = useLive()
   const [fast, setFast] = useState(false)
   const viewport = useRef<HTMLDivElement>(null)
   const entries = useMemo(() => sortedEntries(c), [c])
@@ -172,7 +177,10 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
         setSpinning(false)
         setWon(result)
         notify("success")
-        setWonUid(store.grant(result)?.uid ?? null)
+        const item = store.grant(result, { mutate: true })
+        setWonUid(item?.uid ?? null)
+        setWonMut(item?.mutation)
+        if (item?.mutation) toast.success(`Мутация ${MUTATION_BY_ID[item.mutation].name}! ×${MUTATION_BY_ID[item.mutation].mult}`)
       },
       fast ? 1300 : 6000,
     )
@@ -221,7 +229,7 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
           </div>
         </div>
 
-        {won && <WinBanner drop={won} onSell={sellWon} onClose={() => setWon(null)} />}
+        {won && <WinBanner drop={won} mutation={wonMut} onSell={sellWon} onClose={() => setWon(null)} />}
 
         <div className="mt-5 space-y-3">
           {gate ? (
@@ -237,7 +245,7 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
                 "Крутим…"
               ) : c.kind === "paid" ? (
                 <span className="inline-flex items-center gap-2">
-                  Открыть за <Coin size={18} /> {formatCoins(c.price)}
+                  Открыть за <Coin size={18} /> {streamer ? "•••" : formatCoins(c.price)}
                 </span>
               ) : (
                 "Открыть бесплатно"
@@ -268,26 +276,28 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
   )
 }
 
-function WinBanner({ drop, onSell, onClose }: { drop: Drop; onSell: () => void; onClose: () => void }) {
+function WinBanner({ drop, mutation, onSell, onClose }: { drop: Drop; mutation?: MutationId; onSell: () => void; onClose: () => void }) {
+  const value = drop.kind === "brainrot" ? mutatedValue(BRAINROT_BY_ID[drop.id]?.price ?? 0, mutation) : dropValue(drop)
   return (
     <div className="bd-pop relative mt-5 overflow-hidden rounded-2xl border border-[var(--bd-lime)]/40 bg-gradient-to-b from-[#1d2a0c] to-[#120b22] p-4">
       <div className="bd-rays pointer-events-none absolute -top-40 left-1/2 size-80 -translate-x-1/2 opacity-60" />
       <div className="relative flex items-center gap-4">
         <div className="w-28 shrink-0">
-          <DropCard drop={drop} compact />
+          {drop.kind === "brainrot" ? <BrainrotCard b={BRAINROT_BY_ID[drop.id]} mutation={mutation} compact /> : <DropCard drop={drop} compact />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-bold uppercase tracking-wider text-[var(--bd-lime)]">Твой дроп</div>
           <div className="truncate font-heading text-lg font-extrabold">{dropLabel(drop)}</div>
           <div className="mt-1">
-            <CoinAmount value={dropValue(drop)} />
+            <CoinAmount value={value} />
+            {mutation && <div className="mt-1 text-[10px] text-white/55">С мутацией нельзя продать или вывести — только обменять в инвентаре</div>}
           </div>
           <div className="mt-3 flex gap-2">
             {drop.kind === "brainrot" ? (
               <>
-                <button type="button" className="bd-btn px-3 py-2 text-xs" onClick={onSell}>
+                {!mutation && <button type="button" className="bd-btn px-3 py-2 text-xs" onClick={onSell}>
                   Продать
-                </button>
+                </button>}
                 <button type="button" className="bd-btn-ghost px-3 py-2 text-xs font-bold" onClick={onClose}>
                   В инвентарь
                 </button>

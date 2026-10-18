@@ -2,6 +2,8 @@ import { memo, useId } from "react"
 import { BRAINROT_BY_ID, TIER_META, type Brainrot } from "@/data/brainrots"
 import { dropValue, type Drop } from "@/data/cases"
 import { cn } from "@/lib/utils"
+import { useLive } from "@/lib/live"
+import { MUTATION_BY_ID, mutatedValue, type MutationId } from "@/data/mutations"
 
 export function formatIncome(perSec: number) {
   if (perSec >= 1e9) return `${+(perSec / 1e9).toFixed(2)}B/s`
@@ -54,6 +56,14 @@ export const Coin = memo(function Coin({ size = 18, className }: { size?: number
 })
 
 export function CoinAmount({ value, size = 16, className }: { value: number; size?: number; className?: string }) {
+  const { streamer } = useLive()
+  if (streamer)
+    return (
+      <span className={cn("inline-flex items-center gap-1 font-heading font-bold text-[var(--bd-gold)]", className)} title="Режим стримера">
+        <Coin size={size} />
+        •••
+      </span>
+    )
   return (
     <span className={cn("inline-flex items-center gap-1 font-heading font-bold tabular-nums text-[var(--bd-gold)]", className)}>
       <Coin size={size} />
@@ -109,7 +119,9 @@ export const BrainrotCard = memo(function BrainrotCard({
   compact,
   footer,
   chance,
+  mutation,
 }: {
+  mutation?: MutationId
   b: Brainrot
   selected?: boolean
   onClick?: () => void
@@ -117,15 +129,19 @@ export const BrainrotCard = memo(function BrainrotCard({
   footer?: React.ReactNode
   chance?: number
 }) {
+  useLive() // re-render when owner changes prices
   const t = TIER_META[b.tier]
+  const mut = mutation ? MUTATION_BY_ID[mutation] : null
   const className = cn(
     "group relative flex flex-col items-center overflow-hidden rounded-2xl border p-2 text-left transition-transform duration-150",
     onClick && "active:scale-[.97] hover:-translate-y-0.5",
     selected ? "border-[var(--bd-lime)] ring-2 ring-[var(--bd-lime)]/60" : "border-white/8",
+    mut && "bd-mutated",
   )
   const style = {
-    background: `radial-gradient(120% 80% at 50% 0%, ${t.glow}, transparent 65%), linear-gradient(180deg,#1f1638,#130c24)`,
+    background: `radial-gradient(120% 80% at 50% 0%, ${mut ? mut.color + "88" : t.glow}, transparent 65%), linear-gradient(180deg,#1f1638,#130c24)`,
     contain: "layout paint",
+    ...(mut ? { borderColor: mut.color } : {}),
   } as const
   const body = (
     <>
@@ -136,10 +152,15 @@ export const BrainrotCard = memo(function BrainrotCard({
         </span>
         {chance !== undefined && <span className="text-[9px] font-bold text-white/55">{formatChance(chance)}</span>}
       </div>
+      {mut && (
+        <span className="absolute left-1/2 top-6 z-10 -translate-x-1/2 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase text-black" style={{ background: mut.color }}>
+          {mut.name} ×{mut.mult}
+        </span>
+      )}
       <BrainrotImg b={b} size={compact ? 64 : 84} eager={compact} className="my-1 transition-transform duration-300 group-hover:scale-110" />
       <div className={cn("w-full truncate text-center font-bold", compact ? "text-[11px]" : "text-xs")}>{b.name}</div>
       <div className="mt-1 flex w-full flex-wrap items-center justify-center gap-1">
-        <CoinAmount value={b.price} size={13} className="text-xs" />
+        <CoinAmount value={mutatedValue(b.price, mutation)} size={13} className="text-xs" />
         <IncomeTag perSec={b.incomePerSec} />
       </div>
       {footer}
