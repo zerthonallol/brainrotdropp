@@ -20,6 +20,8 @@ export type Database = {
           announcement_by: number | null
           announcement_id: string | null
           id: number
+          maintenance: boolean
+          maintenance_text: string | null
           price_overrides: Json
           updated_at: string
         }
@@ -28,6 +30,8 @@ export type Database = {
           announcement_by?: number | null
           announcement_id?: string | null
           id?: number
+          maintenance?: boolean
+          maintenance_text?: string | null
           price_overrides?: Json
           updated_at?: string
         }
@@ -36,6 +40,8 @@ export type Database = {
           announcement_by?: number | null
           announcement_id?: string | null
           id?: number
+          maintenance?: boolean
+          maintenance_text?: string | null
           price_overrides?: Json
           updated_at?: string
         }
