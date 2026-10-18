@@ -14,7 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          announcement: string | null
+          announcement_by: number | null
+          announcement_id: string | null
+          id: number
+          price_overrides: Json
+          updated_at: string
+        }
+        Insert: {
+          announcement?: string | null
+          announcement_by?: number | null
+          announcement_id?: string | null
+          id?: number
+          price_overrides?: Json
+          updated_at?: string
+        }
+        Update: {
+          announcement?: string | null
+          announcement_by?: number | null
+          announcement_id?: string | null
+          id?: number
+          price_overrides?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      players: {
+        Row: {
+          created_at: string
+          first_name: string
+          state: Json
+          tg_id: number
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_name?: string
+          state?: Json
+          tg_id: number
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          state?: Json
+          tg_id?: number
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
