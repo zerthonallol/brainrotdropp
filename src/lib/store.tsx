@@ -78,7 +78,9 @@ interface Store {
   requestWithdraw: (uid: string, robloxNick: string) => void
 }
 
-const Ctx = createContext<Store | null>(null)
+// Keep one context across hot reloads so the provider and consumers always match.
+const g = globalThis as { __bdStoreCtx?: import("react").Context<Store | null> }
+const Ctx = (g.__bdStoreCtx ??= createContext<Store | null>(null))
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
