@@ -2,7 +2,9 @@ import { useMemo, useState } from "react"
 import { ArrowDownToLine, ArrowUpFromLine, Backpack, CheckCircle2, Clock3, Search, ShieldCheck, Users, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { BRAINROTS, BRAINROT_BY_ID, wikiLink } from "@/data/brainrots"
-import { useStore, type InvItem } from "@/lib/store"
+import { itemValue, useStore, type InvItem } from "@/lib/store"
+import { tradeOptions } from "@/data/mutations"
+import { Repeat } from "lucide-react"
 import { haptic, notify } from "@/lib/telegram"
 import { cn } from "@/lib/utils"
 import { InviteButton } from "./CasesView"
@@ -13,7 +15,7 @@ type Tab = "inventory" | "deposit" | "requests"
 export function ProfileView({ initialTab = "inventory" }: { initialTab?: Tab }) {
   const store = useStore()
   const [tab, setTab] = useState<Tab>(initialTab)
-  const ownedValue = store.inventory.reduce((s, i) => s + (BRAINROT_BY_ID[i.brainrotId]?.price ?? 0), 0)
+  const ownedValue = store.inventory.reduce((s, i) => s + itemValue(i), 0)
   const pending = store.requests.filter((r) => r.status === "pending").length
 
   return (
@@ -94,6 +96,7 @@ function Avatar() {
 function Inventory() {
   const store = useStore()
   const [withdrawing, setWithdrawing] = useState<InvItem | null>(null)
+  const [trading, setTrading] = useState<InvItem | null>(null)
   if (store.inventory.length === 0)
     return <div className="bd-panel p-6 text-center text-sm text-white/55">Пока пусто. Открой кейс или задепозить брейнрота из Roblox.</div>
   return (
@@ -105,8 +108,13 @@ function Inventory() {
             <BrainrotCard
               key={i.uid}
               b={b}
+              mutation={i.mutation}
               footer={
-                i.status === "withdrawing" ? (
+                i.mutation && i.status === "owned" ? (
+                  <button type="button" className="bd-btn mt-2 flex w-full items-center justify-center gap-1 py-1.5 text-[11px]" onClick={() => setTrading(i)}>
+                    <Repeat className="size-3" /> Обменять
+                  </button>
+                ) : i.status === "withdrawing" ? (
                   <div className="mt-2 w-full rounded-lg bg-amber-400/12 py-1.5 text-center text-[11px] font-bold text-amber-300">Выводится…</div>
                 ) : (
                   <div className="mt-2 grid w-full grid-cols-2 gap-1.5">
@@ -132,7 +140,45 @@ function Inventory() {
         })}
       </div>
       {withdrawing && <WithdrawSheet item={withdrawing} onClose={() => setWithdrawing(null)} />}
+      {trading && <TradeSheet item={trading} onClose={() => setTrading(null)} />}
     </>
+  )
+}
+
+function TradeSheet({ item, onClose }: { item: InvItem; onClose: () => void }) {
+  const store = useStore()
+  const b = BRAINROT_BY_ID[item.brainrotId]
+  const value = itemValue(item)
+  const options = useMemo(() => tradeOptions(BRAINROTS, value, item.brainrotId), [value, item.brainrotId])
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bd-pop bd-panel max-h-[80dvh] w-full max-w-xl overflow-y-auto rounded-b-none p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+        <div className="text-xs font-bold uppercase text-white/45">Трейд мутированного брейнрота</div>
+        <div className="font-heading text-lg font-extrabold">{b.name}</div>
+        <p className="mt-1 text-[11px] text-white/50">
+          Брейнрота с мутацией нельзя продать или вывести. Обменяй его на обычного примерно такой же стоимости (±10%).
+        </p>
+        <div className="mt-3 flex items-center gap-1 text-xs text-white/60">
+          Стоимость: <CoinAmount value={value} size={13} className="text-xs" />
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {options.map((x) => (
+            <BrainrotCard
+              key={x.id}
+              b={x}
+              compact
+              onClick={() => {
+                store.tradeItem(item.uid, x.id)
+                notify("success")
+                toast.success(`Обменено на ${x.name}`)
+                onClose()
+              }}
+            />
+          ))}
+        </div>
+        {options.length === 0 && <div className="mt-4 text-center text-sm text-white/50">Нет подходящих брейнротов</div>}
+      </div>
+    </div>
   )
 }
 
