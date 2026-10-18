@@ -79,6 +79,16 @@ function CaseTile({ c, onOpen }: { c: CaseDef; onOpen: () => void }) {
   const readyAt = caseReadyAt(c)
   const locked = readyAt > now
   const small = c.kind !== "paid"
+  // Two rarest brainrots peek out from behind the cover, like a Steal a Brainrot pedestal.
+  const peek = useMemo(
+    () =>
+      sortedEntries(c)
+        .filter((e) => e.drop.kind === "brainrot")
+        .slice(-2)
+        .map((e) => (e.drop.kind === "brainrot" ? BRAINROT_BY_ID[e.drop.id] : null))
+        .filter(Boolean),
+    [c],
+  )
   return (
     <button
       type="button"
@@ -86,34 +96,47 @@ function CaseTile({ c, onOpen }: { c: CaseDef; onOpen: () => void }) {
         haptic()
         onOpen()
       }}
-      className="group relative flex flex-col items-center overflow-hidden rounded-2xl border border-white/8 p-3 text-center transition-transform active:scale-[.97]"
-      style={{ background: `radial-gradient(110% 70% at 50% 15%, ${c.accent}55, transparent 70%), linear-gradient(180deg,#1f1638,#120b22)` }}
+      className="bd-case group text-center"
+      style={{ ["--case" as string]: c.accent }}
     >
-      <div className="relative">
-        <div className="absolute inset-0 -z-0 scale-125 rounded-full blur-2xl" style={{ background: c.accent, opacity: 0.35 }} />
+      <span className="bd-case-rays" />
+      <span className="bd-halftone" />
+      {!small && <span className="bd-case-tag">BRAINROT</span>}
+      <div className={cn("relative mt-1 grid place-items-center", small ? "h-16" : "h-28")}>
+        {!small &&
+          peek.map((b, i) =>
+            b ? (
+              <img
+                key={b.id}
+                src={cdnImage(b.image, 120)}
+                alt=""
+                loading="lazy"
+                className={cn("absolute bottom-0 size-14 object-contain opacity-90 drop-shadow-[0_4px_6px_rgba(0,0,0,.6)]", i === 0 ? "-left-1 -rotate-12" : "-right-1 rotate-12")}
+              />
+            ) : null,
+          )}
         <img
           src={cdnImage(c.cover, small ? 160 : 240)}
           alt=""
           loading="lazy"
           decoding="async"
-          className={cn("relative object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3", small ? "size-16" : "size-28")}
+          className={cn("bd-sticker relative object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6", small ? "size-16" : "size-28")}
         />
+        <span className="bd-pedestal" />
       </div>
-      <div className={cn("mt-2 font-heading font-extrabold leading-tight", small ? "text-[11px]" : "text-sm")}>{c.name}</div>
-      {!small && <div className="mt-0.5 text-[11px] text-white/50">{c.subtitle}</div>}
-      <div className="mt-2">
+      <div className={cn("bd-case-title relative mt-2", small ? "text-[11px]" : "text-[15px]")}>{c.name}</div>
+      {!small && <div className="relative mt-0.5 text-[11px] font-semibold text-white/60">{c.subtitle}</div>}
+      <div className="relative mt-2">
         {c.kind === "paid" ? (
-          <span className="inline-flex items-center rounded-lg bg-black/35 px-2.5 py-1">
+          <span className="bd-case-price">
             <CoinAmount value={c.price} size={15} className="text-sm" />
           </span>
         ) : locked ? (
-          <span className="inline-flex items-center gap-1 rounded-lg bg-black/35 px-2 py-1 text-[10px] font-bold tabular-nums text-white/70">
+          <span className="inline-flex items-center gap-1 rounded-lg bg-black/45 px-2 py-1 text-[10px] font-bold tabular-nums text-white/70">
             <Clock className="size-3" /> {fmtLeft(readyAt - now)}
           </span>
         ) : (
-          <span className="rounded-lg px-2 py-1 text-[10px] font-extrabold text-black" style={{ background: c.accent }}>
-            ОТКРЫТЬ
-          </span>
+          <span className="bd-case-open">ОТКРЫТЬ</span>
         )}
       </div>
     </button>

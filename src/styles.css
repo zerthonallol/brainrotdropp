@@ -293,3 +293,63 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .bd-float, .bd-ticker, .bd-rays { animation: none; }
 }
+
+/* ---- Brainrot-style case tiles ---- */
+.bd-case {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  padding: 0.75rem;
+  border: 2px solid color-mix(in oklab, var(--case) 70%, black);
+  background:
+    radial-gradient(110% 70% at 50% 10%, color-mix(in oklab, var(--case) 55%, transparent), transparent 70%),
+    linear-gradient(180deg, #24183f, #110a20);
+  box-shadow: 0 4px 0 color-mix(in oklab, var(--case) 55%, black), 0 10px 24px -8px color-mix(in oklab, var(--case) 60%, transparent);
+  transition: transform 0.15s;
+}
+.bd-case:active { transform: translateY(3px) scale(0.98); box-shadow: 0 1px 0 color-mix(in oklab, var(--case) 55%, black); }
+.bd-case-rays {
+  position: absolute; left: 50%; top: 38%; width: 260px; height: 260px; translate: -50% -50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--case) 35%, transparent) 0 10deg, transparent 10deg 22deg);
+  mask: radial-gradient(circle, black 20%, transparent 65%);
+  animation: bd-spin 18s linear infinite; pointer-events: none;
+}
+.bd-halftone {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.18;
+  background-image: radial-gradient(rgba(255,255,255,.7) 1px, transparent 1.2px);
+  background-size: 7px 7px;
+  mask: linear-gradient(180deg, transparent 40%, black);
+}
+.bd-case-tag {
+  position: absolute; left: -26px; top: 12px; rotate: -35deg; z-index: 2;
+  padding: 2px 30px; font-size: 8px; font-weight: 900; letter-spacing: .12em; color: #000;
+  background: var(--case);
+}
+.bd-sticker {
+  filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 8px 10px rgba(0,0,0,.6));
+}
+.bd-pedestal {
+  position: absolute; bottom: -6px; left: 50%; translate: -50% 0; width: 70%; height: 12px; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--case) 80%, white), transparent);
+  opacity: .7;
+}
+.bd-case-title {
+  font-family: "Unbounded", sans-serif; font-weight: 800; line-height: 1.1; text-transform: uppercase;
+  color: #fff; -webkit-text-stroke: 0.6px #000;
+  text-shadow: 0 2px 0 #000, 0 0 12px color-mix(in oklab, var(--case) 70%, transparent);
+}
+.bd-case-price {
+  display: inline-flex; align-items: center; border-radius: .6rem; padding: .25rem .65rem;
+  background: rgba(0,0,0,.55); border: 1px solid color-mix(in oklab, var(--case) 50%, transparent);
+}
+.bd-case-open {
+  display: inline-block; border-radius: .5rem; padding: .25rem .6rem; font-size: 10px; font-weight: 900; color: #000;
+  background: var(--case); box-shadow: 0 2px 0 color-mix(in oklab, var(--case) 50%, black);
+}
+@keyframes bd-spin { to { rotate: 360deg; } }
+
+.bd-mutated { animation: bd-mut-glow 2.4s ease-in-out infinite; }
+@keyframes bd-mut-glow { 50% { box-shadow: 0 0 18px -2px rgba(255,255,255,.35); } }
