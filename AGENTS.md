@@ -8,3 +8,8 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Brainrot data in src/data/brainrots.ts is generated from Steal a Brainrot wiki categories; `rarityScore` drives `price`, so regenerate rather than hand-edit prices.
+- Player state is saved via src/lib/player.functions.ts keyed by Telegram id, verified with Telegram initData HMAC (TELEGRAM_BOT_TOKEN); localStorage is only a fast local backup.
+- Owner-only actions (global price overrides, update banner) live in src/lib/owner.functions.ts and are verified server-side via Telegram initData; the owner id is in src/lib/tg-auth.ts.
+- Global UI state that memoized cards need (streamer mode, price overrides) lives in src/lib/live.ts as an external store; overrides mutate brainrot objects in place.
