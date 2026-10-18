@@ -1,0 +1,1 @@
+ALTER TABLE public.app_settings ADD COLUMN maintenance boolean NOT NULL DEFAULT false, ADD COLUMN maintenance_text text;
