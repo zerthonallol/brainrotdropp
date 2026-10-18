@@ -1,6 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Box, Dices, Plus, Rocket, TrendingUp, User } from 'lucide-react'
+import { Box, Crown, Dices, EyeOff, Megaphone, Plus, Rocket, Settings, TrendingUp, User, X } from 'lucide-react'
+import { OwnerView } from '@/components/casino/OwnerView'
+import { isOwner } from '@/lib/tg-auth'
+import { setStreamer, useLive } from '@/lib/live'
 import { BRAINROT_BY_ID, TIER_META } from '@/data/brainrots'
 import { randomFeedItem, type FeedItem } from '@/data/fixtures'
 import { StoreProvider, useStore } from '@/lib/store'
@@ -27,7 +30,7 @@ export const Route = createFileRoute('/')({
   component: App,
 })
 
-type TabId = 'cases' | 'upgrade' | 'dice' | 'crash' | 'profile'
+type TabId = 'cases' | 'upgrade' | 'dice' | 'crash' | 'profile' | 'owner'
 
 const TABS: { id: TabId; label: string; icon: typeof Box }[] = [
   { id: 'cases', label: 'Кейсы', icon: Box },
@@ -46,6 +49,10 @@ function App() {
 }
 
 function Shell() {
+  const { user } = useStore()
+  const owner = isOwner(user.id)
+  const tabs = owner ? [...TABS, { id: 'owner' as TabId, label: 'Владелец', icon: Crown }] : TABS
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [tab, setTab] = useState<TabId>('cases')
   // Game views stay mounted so a running Crash round or upgrade isn't lost on tab switch.
   const [visited, setVisited] = useState<Set<TabId>>(() => new Set(['cases']))
@@ -58,11 +65,12 @@ function Shell() {
 
   return (
     <div className="bd-bg min-h-dvh pb-28">
-      <Header onDeposit={() => go('profile')} />
+      <Header onDeposit={() => go('profile')} onSettings={() => setSettingsOpen(true)} />
+      <UpdateBanner />
       <LiveFeed />
       <main className="mx-auto max-w-xl px-4 pt-4">
         {tab === 'cases' && <Hero onPlay={() => go('upgrade')} />}
-        {TABS.map(({ id }) =>
+        {tabs.map(({ id }) =>
           visited.has(id) ? (
             <section key={id} hidden={tab !== id} className={cn(tab === 'cases' && id === 'cases' && 'mt-6')}>
               {id === 'cases' && <CasesView />}
@@ -70,17 +78,94 @@ function Shell() {
               {id === 'crash' && <CrashView />}
               {id === 'dice' && <DiceView />}
               {id === 'profile' && <ProfileView />}
+              {id === 'owner' && owner && <OwnerView />}
             </section>
           ) : null,
         )}
         <Footer />
       </main>
-      <BottomNav tab={tab} onChange={go} />
+      <BottomNav tabs={tabs} tab={tab} onChange={go} />
+      {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }
 
-function Header({ onDeposit }: { onDeposit: () => void }) {
+function UpdateBanner() {
+  const { announcement, user } = useStore()
+  const [hidden, setHidden] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      setHidden(localStorage.getItem('brainrotdrop:banner-hidden'))
+    } catch {
+      /* ignore */
+    }
+  }, [])
+  // Shown to everyone except the owner who posted it.
+  if (!announcement || announcement.by === user.id || hidden === announcement.id) return null
+  return (
+    <div className="mx-auto mt-3 max-w-xl px-4">
+      <div className="bd-pop flex items-start gap-3 rounded-2xl border border-[var(--bd-lime)]/40 bg-[var(--bd-lime)]/10 p-3">
+        <Megaphone className="mt-0.5 size-4 shrink-0 text-[var(--bd-lime)]" />
+        <div className="min-w-0 flex-1 text-xs">
+          <div className="font-extrabold uppercase tracking-wider text-[var(--bd-lime)]">Обновление</div>
+          <div className="mt-0.5 text-white/85">{announcement.text}</div>
+        </div>
+        <button
+          type="button"
+          aria-label="Скрыть"
+          className="text-white/50"
+          onClick={() => {
+            setHidden(announcement.id)
+            try {
+              localStorage.setItem('brainrotdrop:banner-hidden', announcement.id)
+            } catch {
+              /* ignore */
+            }
+          }}
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SettingsSheet({ onClose }: { onClose: () => void }) {
+  const { streamer } = useLive()
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bd-pop bd-panel w-full max-w-xl rounded-b-none p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="font-heading text-lg font-extrabold">Настройки</div>
+          <button type="button" onClick={onClose} className="bd-btn-ghost grid size-9 place-items-center" aria-label="Закрыть">
+            <X className="size-4" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            haptic()
+            setStreamer(!streamer)
+          }}
+          className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-black/30 p-4 text-left"
+        >
+          <span className="grid size-10 place-items-center rounded-xl bg-[var(--bd-pink)]/15 text-[var(--bd-pink)]">
+            <EyeOff className="size-5" />
+          </span>
+          <span className="flex-1">
+            <span className="block font-bold">Режим стримера</span>
+            <span className="block text-xs text-white/50">Скрывает баланс, стоимость инвентаря, кейсов и брейнротов</span>
+          </span>
+          <span className={cn('relative h-6 w-11 rounded-full transition-colors', streamer ? 'bg-[var(--bd-lime)]' : 'bg-white/15')}>
+            <span className={cn('absolute top-0.5 size-5 rounded-full bg-white transition-all', streamer ? 'left-[22px]' : 'left-0.5')} />
+          </span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Header({ onDeposit, onSettings }: { onDeposit: () => void; onSettings: () => void }) {
   const { balance } = useStore()
   return (
     <header className="sticky top-0 z-40 border-b border-white/6 bg-[#0b0716]/85 backdrop-blur-md">
@@ -97,6 +182,9 @@ function Header({ onDeposit }: { onDeposit: () => void }) {
           <CoinAmount value={balance} size={18} className="text-[15px]" />
           <button type="button" onClick={onDeposit} className="bd-btn grid size-8 place-items-center !rounded-lg !shadow-none" aria-label="Пополнить">
             <Plus className="size-4" />
+          </button>
+          <button type="button" onClick={onSettings} className="bd-btn-ghost grid size-8 place-items-center !rounded-lg" aria-label="Настройки">
+            <Settings className="size-4" />
           </button>
         </div>
       </div>
@@ -184,11 +272,11 @@ function Footer() {
   )
 }
 
-function BottomNav({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
+function BottomNav({ tabs, tab, onChange }: { tabs: typeof TABS; tab: TabId; onChange: (t: TabId) => void }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/8 bg-[#0b0716]/92 pb-[max(env(safe-area-inset-bottom),8px)] backdrop-blur-md">
-      <div className="mx-auto grid max-w-xl grid-cols-5 px-2 pt-2">
-        {TABS.map(({ id, label, icon: Icon }) => {
+      <div className={cn('mx-auto grid max-w-xl px-2 pt-2', tabs.length > 5 ? 'grid-cols-6' : 'grid-cols-5')}>
+        {tabs.map(({ id, label, icon: Icon }) => {
           const active = tab === id
           return (
             <button
