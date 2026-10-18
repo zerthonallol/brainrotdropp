@@ -79,7 +79,7 @@ interface Store {
 }
 
 // Keep one context across hot reloads so the provider and consumers always match.
-const g = globalThis as { __bdStoreCtx?: React.Context<Store | null> }
+const g = globalThis as { __bdStoreCtx?: import("react").Context<Store | null> }
 const Ctx = (g.__bdStoreCtx ??= createContext<Store | null>(null))
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 
